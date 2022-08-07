@@ -23,6 +23,20 @@ class Boundary {
   update() {}
 }
 
+class Pellet {
+  constructor({ position }) {
+    this.position = position;
+    this.radius = 3;
+  }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.position.x, this.position.y, this.radius, 0, Math.PI * 2);
+    ctx.fillStyle = "white";
+    ctx.fill();
+    ctx.closePath();
+  }
+}
+
 class Player {
   constructor({ position, velocity }) {
     this.position = position;
@@ -43,6 +57,7 @@ class Player {
   }
 }
 
+const pellets = [];
 const boundaries = [];
 const player = new Player({
   position: { x: Boundary.width + Boundary.width * 0.5, y: Boundary.height + Boundary.height * 0.5 },
@@ -147,14 +162,14 @@ map.forEach((row, i) => {
         boundaries.push(createBoundary(j, i, "pipeConnectorLeft"));
         break;
       case ".":
-        // pellets.push(
-        //   new Pellet({
-        //     position: {
-        //       x: j * Boundary.width + Boundary.width / 2,
-        //       y: i * Boundary.height + Boundary.height / 2,
-        //     },
-        //   })
-        // );
+        pellets.push(
+          new Pellet({
+            position: {
+              x: j * Boundary.width + Boundary.width * 0.5,
+              y: i * Boundary.height + Boundary.height * 0.5,
+            },
+          })
+        );
         break;
     }
   });
@@ -207,6 +222,10 @@ function animate() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   handleKeyPresses();
+
+  pellets.forEach(pellet => {
+    pellet.draw();
+  });
 
   boundaries.forEach(boundary => {
     boundary.draw();
