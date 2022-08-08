@@ -7,4 +7,6 @@
 body {
   background: black;
   overflow: hidden;
+  /* margin: 1rem; */
+  padding: 10px 20px;
 }

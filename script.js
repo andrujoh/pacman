@@ -1,6 +1,6 @@
 const canvas = document.querySelector("canvas");
-
 const ctx = canvas.getContext("2d");
+const scoreEl = document.querySelector("#scoreEl");
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -83,6 +83,8 @@ const keys = {
 };
 
 let lastKey = "";
+let score = 0;
+let playerHasWon = false;
 
 const map = [
   ["1", "-", "-", "-", "-", "-", "-", "-", "-", "-", "2"],
@@ -231,6 +233,8 @@ function animate() {
       pellet.radius + player.radius
     ) {
       pellets.splice(i, 1);
+      score += 10;
+      scoreEl.innerHTML = score;
     }
   }
 
@@ -241,7 +245,8 @@ function animate() {
   player.update();
   if (pellets.length === 0) {
     cancelAnimationFrame(animationFrameId);
-    alert("You have won!");
+
+    scoreEl.innerHTML = "You won! Your score is " + score;
   }
 }
 animate();
