@@ -41,7 +41,7 @@ class Player {
   constructor({ position, velocity }) {
     this.position = position;
     this.velocity = velocity;
-    this.radius = 18;
+    this.radius = 15;
   }
   draw() {
     ctx.beginPath();
@@ -57,8 +57,45 @@ class Player {
   }
 }
 
+class Ghost {
+  static speed = 2;
+
+  constructor({ position, velocity, color = "red" }) {
+    this.position = position;
+    this.velocity = velocity;
+    this.radius = 15;
+    this.color = color;
+    this.previousCollisions = [];
+    this.speed = Ghost.speed;
+  }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.position.x, this.position.y, this.radius, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.fill();
+    ctx.closePath();
+  }
+  update() {
+    this.draw();
+    this.position.x += this.velocity.x;
+    this.position.y += this.velocity.y;
+  }
+}
+
 const pellets = [];
 const boundaries = [];
+const ghosts = [
+  new Ghost({
+    position: { x: Boundary.width * 6 + Boundary.width * 0.5, y: Boundary.height + Boundary.height * 0.5 },
+    velocity: { x: Ghost.speed, y: 0 },
+  }),
+  new Ghost({
+    position: { x: Boundary.width * 6 + Boundary.width * 0.5, y: Boundary.height * 3 + Boundary.height * 0.5 },
+    velocity: { x: Ghost.speed, y: 0 },
+    color: "pink",
+  }),
+];
+
 const player = new Player({
   position: { x: Boundary.width + Boundary.width * 0.5, y: Boundary.height + Boundary.height * 0.5 },
   velocity: {
@@ -179,7 +216,7 @@ map.forEach((row, i) => {
 
 function handleAllowedPath(velocity, targetAxis) {
   boundaries.every(boundary => {
-    if (playerCollidesWithBoundary({ player: { ...player, velocity }, boundary })) {
+    if (playerCollidesWithBoundary({ sprite: { ...player, velocity }, boundary })) {
       player.velocity[targetAxis] = 0;
       return false;
     } else {
@@ -204,23 +241,25 @@ function handleKeyPresses() {
 }
 
 function handlePlayerBoundaries(boundary) {
-  if (playerCollidesWithBoundary({ player, boundary })) {
+  if (playerCollidesWithBoundary({ sprite: player, boundary })) {
     player.velocity.y = 0;
     player.velocity.x = 0;
   }
 }
 
-function playerCollidesWithBoundary({ player, boundary }) {
+function playerCollidesWithBoundary({ sprite, boundary }) {
+  const padding = Boundary.width / 2 - sprite.radius - 1;
   return (
-    player.position.y - player.radius + player.velocity.y <= boundary.position.y + boundary.height &&
-    player.position.x + player.radius + player.velocity.x >= boundary.position.x &&
-    player.position.y + player.radius + player.velocity.y >= boundary.position.y &&
-    player.position.x - player.radius + player.velocity.x <= boundary.position.x + boundary.width
+    sprite.position.y - sprite.radius + sprite.velocity.y <= boundary.position.y + boundary.height + padding &&
+    sprite.position.x + sprite.radius + sprite.velocity.x >= boundary.position.x - padding &&
+    sprite.position.y + sprite.radius + sprite.velocity.y >= boundary.position.y - padding &&
+    sprite.position.x - sprite.radius + sprite.velocity.x <= boundary.position.x + boundary.width + padding
   );
 }
-
+let animationId;
 function animate() {
-  const animationFrameId = requestAnimationFrame(animate);
+  // const animationFrameId = requestAnimationFrame(animate);
+  animationId = requestAnimationFrame(animate);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   handleKeyPresses();
@@ -242,9 +281,82 @@ function animate() {
     boundary.draw();
     handlePlayerBoundaries(boundary);
   });
+
   player.update();
+  ghosts.forEach(ghost => {
+    ghost.update();
+    if (
+      Math.hypot(ghost.position.x - player.position.x, ghost.position.y - player.position.y) <
+      ghost.radius + player.radius
+    ) {
+      cancelAnimationFrame(animationId);
+      scoreEl.innerHTML = "You died! Your score is " + score;
+      // pellets.splice(i, 1);
+      // score += 10;
+      // scoreEl.innerHTML = score;
+    }
+    const collisions = [];
+    boundaries.forEach(boundary => {
+      if (
+        !collisions.includes("right") &&
+        playerCollidesWithBoundary({ sprite: { ...ghost, velocity: { x: ghost.speed, y: 0 } }, boundary })
+      ) {
+        collisions.push("right");
+      }
+      if (
+        !collisions.includes("left") &&
+        playerCollidesWithBoundary({ sprite: { ...ghost, velocity: { x: -ghost.speed, y: 0 } }, boundary })
+      ) {
+        collisions.push("left");
+      }
+      if (
+        !collisions.includes("up") &&
+        playerCollidesWithBoundary({ sprite: { ...ghost, velocity: { x: 0, y: -ghost.speed } }, boundary })
+      ) {
+        collisions.push("up");
+      }
+      if (
+        !collisions.includes("down") &&
+        playerCollidesWithBoundary({ sprite: { ...ghost, velocity: { x: 0, y: ghost.speed } }, boundary })
+      ) {
+        collisions.push("down");
+      }
+    });
+    if (collisions.length > ghost.previousCollisions.length) {
+      ghost.previousCollisions = collisions;
+    }
+    if (JSON.stringify(collisions) !== JSON.stringify(ghost.previousCollisions)) {
+      if (ghost.velocity.x > 0) ghost.previousCollisions.push("right");
+      else if (ghost.velocity.x < 0) ghost.previousCollisions.push("left");
+      else if (ghost.velocity.y < 0) ghost.previousCollisions.push("up");
+      else if (ghost.velocity.y > 0) ghost.previousCollisions.push("down");
+      const pathways = ghost.previousCollisions.filter(collision => !collisions.includes(collision));
+
+      const direction = pathways[Math.floor(Math.random() * pathways.length)];
+
+      switch (direction) {
+        case "down":
+          ghost.velocity.y = ghost.speed;
+          ghost.velocity.x = 0;
+          break;
+        case "up":
+          ghost.velocity.y = -ghost.speed;
+          ghost.velocity.x = 0;
+          break;
+        case "right":
+          ghost.velocity.y = 0;
+          ghost.velocity.x = ghost.speed;
+          break;
+        case "left":
+          ghost.velocity.y = 0;
+          ghost.velocity.x = -ghost.speed;
+          break;
+      }
+      ghost.previousCollisions = [];
+    }
+  });
   if (pellets.length === 0) {
-    cancelAnimationFrame(animationFrameId);
+    cancelAnimationFrame(animationId);
 
     scoreEl.innerHTML = "You won! Your score is " + score;
   }
