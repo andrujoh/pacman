@@ -67,11 +67,12 @@ class Ghost {
     this.color = color;
     this.previousCollisions = [];
     this.speed = Ghost.speed;
+    this.scared = false;
   }
   draw() {
     ctx.beginPath();
     ctx.arc(this.position.x, this.position.y, this.radius, 0, Math.PI * 2);
-    ctx.fillStyle = this.color;
+    ctx.fillStyle = this.scared ? "blue" : this.color;
     ctx.fill();
     ctx.closePath();
   }
@@ -82,6 +83,21 @@ class Ghost {
   }
 }
 
+class PowerUp {
+  constructor({ position }) {
+    this.position = position;
+    this.radius = 8;
+  }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.position.x, this.position.y, this.radius, 0, Math.PI * 2);
+    ctx.fillStyle = "white";
+    ctx.fill();
+    ctx.closePath();
+  }
+}
+
+const powerups = [];
 const pellets = [];
 const boundaries = [];
 const ghosts = [
@@ -135,7 +151,7 @@ const map = [
   ["|", ".", "[", "]", ".", ".", ".", "[", "]", ".", "|"],
   ["|", ".", ".", ".", ".", "^", ".", ".", ".", ".", "|"],
   ["|", ".", "b", ".", "[", "5", "]", ".", "b", ".", "|"],
-  ["|", ".", ".", ".", ".", ".", ".", ".", ".", ".", "|"],
+  ["|", ".", ".", ".", ".", ".", ".", ".", ".", "p", "|"],
   ["4", "-", "-", "-", "-", "-", "-", "-", "-", "-", "3"],
 ];
 
@@ -210,6 +226,16 @@ map.forEach((row, i) => {
           })
         );
         break;
+      case "p":
+        powerups.push(
+          new PowerUp({
+            position: {
+              x: j * Boundary.width + Boundary.width * 0.5,
+              y: i * Boundary.height + Boundary.height * 0.5,
+            },
+          })
+        );
+        break;
     }
   });
 });
@@ -264,6 +290,47 @@ function animate() {
 
   handleKeyPresses();
 
+  // detect collisions between ghosts and player
+
+  for (let i = ghosts.length - 1; 0 <= i; i--) {
+    const ghost = ghosts[i];
+    if (
+      Math.hypot(ghost.position.x - player.position.x, ghost.position.y - player.position.y) <
+      ghost.radius + player.radius
+    ) {
+      if (ghost.scared) {
+        ghosts.splice(i, 1);
+        score += 50;
+        scoreEl.innerHTML = `Score: ${score}`;
+      } else {
+        cancelAnimationFrame(animationId);
+        scoreEl.innerHTML = "You died! Your score is " + score;
+      }
+    }
+  }
+
+  // powerups go here
+  for (let i = powerups.length - 1; 0 <= i; i--) {
+    const powerUp = powerups[i];
+    powerUp.draw();
+    // player collides with powerup
+    if (
+      Math.hypot(powerUp.position.x - player.position.x, powerUp.position.y - player.position.y) <
+      powerUp.radius + player.radius
+    ) {
+      powerups.splice(i, 1);
+
+      // make scores scared
+      ghosts.forEach(ghost => {
+        ghost.scared = true;
+        setTimeout(() => {
+          ghost.scared = false;
+        }, 5000);
+      });
+    }
+  }
+
+  // touch pellets here
   for (let i = pellets.length - 1; 0 <= i; i--) {
     const pellet = pellets[i];
     pellet.draw();
@@ -273,7 +340,7 @@ function animate() {
     ) {
       pellets.splice(i, 1);
       score += 10;
-      scoreEl.innerHTML = score;
+      scoreEl.innerHTML = `Score: ${score}`;
     }
   }
 
@@ -285,16 +352,7 @@ function animate() {
   player.update();
   ghosts.forEach(ghost => {
     ghost.update();
-    if (
-      Math.hypot(ghost.position.x - player.position.x, ghost.position.y - player.position.y) <
-      ghost.radius + player.radius
-    ) {
-      cancelAnimationFrame(animationId);
-      scoreEl.innerHTML = "You died! Your score is " + score;
-      // pellets.splice(i, 1);
-      // score += 10;
-      // scoreEl.innerHTML = score;
-    }
+
     const collisions = [];
     boundaries.forEach(boundary => {
       if (
